@@ -22,7 +22,7 @@ the client (us) has to decompress them with the appropriate algorithm.
 """
 
 
-def open(uri, mode, kerberos=False, user=None, password=None):
+def open(uri, mode, kerberos=False, user=None, password=None, headers=None):
     """Implement streamed reader from a web site.
 
     Supports Kerberos and Basic HTTP authentication.
@@ -46,13 +46,13 @@ def open(uri, mode, kerberos=False, user=None, password=None):
 
     """
     if mode == 'rb':
-        return BufferedInputBase(uri, mode, kerberos=kerberos, user=user, password=password)
+        return BufferedInputBase(uri, mode, kerberos=kerberos, user=user, password=password, headers=headers)
     else:
         raise NotImplementedError('http support for mode %r not implemented' % mode)
 
 
 class BufferedInputBase(io.BufferedIOBase):
-    def __init__(self, url, mode='r', buffer_size=DEFAULT_BUFFER_SIZE, kerberos=False, user=None, password=None):
+    def __init__(self, url, mode='r', buffer_size=DEFAULT_BUFFER_SIZE, kerberos=False, user=None, password=None, headers=None):
         if kerberos:
             import requests_kerberos
             auth = requests_kerberos.HTTPKerberosAuth()
@@ -64,7 +64,12 @@ class BufferedInputBase(io.BufferedIOBase):
         self.buffer_size = buffer_size
         self.mode = mode
 
-        self.response = requests.get(url, auth=auth, stream=True, headers=_HEADERS)
+        if headers in None:
+            self.headers = _HEADERS.copy()
+        else:
+            self.headers = headers
+
+        self.response = requests.get(url, auth=auth, stream=True, headers=self.headers)
 
         if not self.response.ok:
             self.response.raise_for_status()
@@ -154,7 +159,7 @@ class SeekableBufferedInputBase(BufferedInputBase):
     """
 
     def __init__(self, url, mode='r', buffer_size=DEFAULT_BUFFER_SIZE,
-                 kerberos=False, user=None, password=None):
+                 kerberos=False, user=None, password=None, headers=None):
         """
         If Kerberos is True, will attempt to use the local Kerberos credentials.
         Otherwise, will try to use "basic" HTTP authentication via username/password.
@@ -170,6 +175,11 @@ class SeekableBufferedInputBase(BufferedInputBase):
             self.auth = (user, password)
         else:
             self.auth = None
+
+        if headers in None:
+            self.headers = _HEADERS.copy()
+        else:
+            self.headers = headers
 
         self.buffer_size = buffer_size
         self.mode = mode
@@ -253,10 +263,8 @@ class SeekableBufferedInputBase(BufferedInputBase):
         raise io.UnsupportedOperation
 
     def _partial_request(self, start_pos=None):
-        headers = _HEADERS.copy()
-
         if start_pos is not None:
-            headers.update({"range": s3.make_range_string(start_pos)})
+            self.headers.update({"range": s3.make_range_string(start_pos)})
 
-        response = requests.get(self.url, auth=self.auth, stream=True, headers=headers)
+        response = requests.get(self.url, auth=self.auth, stream=True, headers=self.headers)
         return response
