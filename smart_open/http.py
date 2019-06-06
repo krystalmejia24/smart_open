@@ -64,7 +64,7 @@ class BufferedInputBase(io.BufferedIOBase):
         self.buffer_size = buffer_size
         self.mode = mode
 
-        if headers in None:
+        if headers is None:
             self.headers = _HEADERS.copy()
         else:
             self.headers = headers
@@ -176,7 +176,7 @@ class SeekableBufferedInputBase(BufferedInputBase):
         else:
             self.auth = None
 
-        if headers in None:
+        if headers is None:
             self.headers = _HEADERS.copy()
         else:
             self.headers = headers
